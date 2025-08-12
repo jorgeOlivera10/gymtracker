@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Gym Tracker</title>
+  <meta name="theme-color" content="#0d111a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root{--bg:#0c1117;--card:#0f1623;--line:#1d2838;--text:#e6edf3;--muted:#8aa0b7;--accent:#7c9fff;--ok:#2ecc71;--warn:#f1c40f;--err:#ff5d5d}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,#0b0f15,#0f1623 40%,#0b0f15);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+    header{position:sticky;top:0;backdrop-filter:blur(8px);background:rgba(12,17,23,.65);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top);z-index:10}
+    .wrap{max-width:980px;margin:0 auto;padding:12px 14px}
+    h1{font-size:1.12rem;margin:0;letter-spacing:.2px;display:flex;gap:10px;align-items:center}
+    main{padding:16px 14px}
+    .grid{display:grid;gap:14px}
+    @media(min-width:900px){.grid{grid-template-columns:1.05fr .95fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,.25)}
+    .card .content{padding:14px}
+    label{font-size:.85rem;color:var(--muted)}
+    input,select,textarea{width:100%;padding:14px;border-radius:14px;background:#0b1320;border:1px solid #172338;color:var(--text);font-size:16px}
+    textarea{min-height:76px;resize:vertical}
+    .row{display:grid;gap:10px;margin-bottom:12px}
+    @media(min-width:640px){.row-2{grid-template-columns:repeat(2,1fr)}}
+    @media(min-width:900px){.row-3{grid-template-columns:repeat(3,1fr)}}
+    button{appearance:none;border:1px solid #2a3650;background:#1a2340;color:#dbe6ff;padding:14px;border-radius:14px;cursor:pointer}
+    .primary{background:linear-gradient(135deg,#3957ff,#6aa0ff);border-color:transparent;color:#fff}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #2a3650;background:#0b0f1a;border-radius:999px;padding:8px 12px;color:#cfd9ff;font-size:.85rem}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left;font-size:.92rem}
+    th{color:#9fb0d1}
+    .set-row{display:grid;grid-template-columns:60px 1fr 1fr 1fr 1fr;gap:8px;margin:6px 0}
+    .muted{color:var(--muted)}
+    footer{padding:24px 14px;color:var(--muted);text-align:center;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><h1><img src="icon-192.png" alt="" width="24" height="24" style="border-radius:6px"> Gym Tracker</h1></div></header>
+
+  <main class="wrap grid">
+    <section class="card">
+      <div class="content">
+        <h2 style="margin:0 0 8px">Nuevo registro</h2>
+
+        <form id="form">
+          <div class="row row-3">
+            <div>
+              <label for="fecha">Fecha</label>
+              <input id="fecha" name="fecha" type="date" required>
+            </div>
+            <div>
+              <label for="tipo">Tipo</label>
+              <select id="tipo" name="tipo">
+                <option>Chest</option>
+                <option>Back</option>
+                <option>Legs</option>
+                <option>Trail</option>
+              </select>
+            </div>
+            <div id="grp-ej">
+              <label for="ejercicio">Ejercicio</label>
+              <input id="ejercicio" name="ejercicio" list="dl-ej" placeholder="Escribe o elige">
+              <datalist id="dl-ej"></datalist>
+            </div>
+          </div>
+
+          <div id="sets-box">
+            <label>Series</label>
+            <div id="sets"></div>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button type="button" id="btn-addset">+ Serie</button>
+              <button type="button" id="btn-clearsets">Vaciar series</button>
+            </div>
+          </div>
+
+          <div id="trail-box" style="display:none">
+            <div class="row row-3">
+              <div>
+                <label for="dist_km">Distancia (km)</label>
+                <input id="dist_km" name="dist_km" type="number" step="0.01" inputmode="decimal">
+              </div>
+              <div>
+                <label for="tiempo_min">Tiempo (min)</label>
+                <input id="tiempo_min" name="tiempo_min" type="number" step="0.1" inputmode="decimal">
+              </div>
+              <div>
+                <label for="ritmo_min_km">Ritmo (min/km)</label>
+                <input id="ritmo_min_km" name="ritmo_min_km" type="number" step="0.01" inputmode="decimal" placeholder="auto">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label for="notas">Notas</label>
+              <textarea id="notas" name="notas" placeholder="Sensaciones, máquinas, etc."></textarea>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button type="submit" class="primary">Guardar</button>
+            <button type="button" id="btn-sync">Forzar sincronización</button>
+            <button type="button" id="btn-clear">Limpiar</button>
+            <span class="pill" id="status-pill">Sincronizado</span>
+          </div>
+        </form>
+
+        <p class="muted" style="margin:.6rem 0 0">Consejo: usa el odómetro de series (Set 1, 2, 3…) y RIR si lo llevas.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="content">
+        <h2 style="margin:0 0 8px">Histórico</h2>
+        <div class="row row-3" style="margin-bottom:8px">
+          <div class="pill">Días entrenados: <b id="s-dias">–</b></div>
+          <div class="pill">Último día: <b id="s-lastday">–</b></div>
+          <div class="pill">Último tipo: <b id="s-lastkind">–</b></div>
+        </div>
+        <h3 style="margin:.6rem 0;color:#cdd7f1;font-size:1rem">Últimos registros</h3>
+        <table id="tabla">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Ejercicio</th><th>Set</th><th>Reps</th><th>Kg</th><th>Ritmo</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>Listo para iPhone: añade a pantalla de inicio desde Safari. Funciona offline y sincroniza con Google Sheets.</footer>
+
+<script>
+// ==== CONFIGURA ESTO ====
+const GAS_ENDPOINT = "REPLACE_WITH_YOUR_EXEC_URL"; // pega aquí tu URL /exec de Apps Script
+const GAS_API_KEY  = ""; // opcional, solo si lo activaste en el backend
+// ========================
+
+const LS_QUEUE='gymQueue_v1';
+function readLS(k,f){ try{ return JSON.parse(localStorage.getItem(k)||JSON.stringify(f)) }catch{ return f } }
+function writeLS(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+function uuid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36) }
+function setStatus(t,k){ const el=document.getElementById('status-pill'); el.textContent=t; el.className='pill '+(k||''); }
+
+function addSetRow(def={}){
+  const i = document.querySelectorAll('.set-row').length + 1;
+  const row = document.createElement('div');
+  row.className = 'set-row';
+  row.innerHTML = `
+    <input value="${i}" aria-label="Set" readonly>
+    <input placeholder="Reps" type="number" inputmode="numeric" min="0" step="1" value="${def.reps??''}">
+    <input placeholder="Kg"   type="number" inputmode="decimal" step="0.5" value="${def.peso_kg??''}">
+    <input placeholder="RIR"  type="number" inputmode="decimal" step="0.5" value="${def.rir??''}">
+    <input placeholder="Desc (s)" type="number" inputmode="numeric" step="1" value="${def.descanso_s??''}">
+  `;
+  document.getElementById('sets').appendChild(row);
+}
+function clearSets(){ document.getElementById('sets').innerHTML=''; }
+
+async function fetchCatalog(tipo){
+  try{
+    const res = await fetch(GAS_ENDPOINT, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({op:'catalog', apiKey:GAS_API_KEY, tipo})
+    });
+    const j = await res.json();
+    return (j.ok && Array.isArray(j.data)) ? j.data.map(x=>x.ejercicio) : [];
+  }catch{ return []; }
+}
+
+async function refreshEjercicios(){
+  const tipo = document.getElementById('tipo').value;
+  const list = await fetchCatalog(tipo);
+  const dl = document.getElementById('dl-ej');
+  dl.innerHTML = list.map(x=>`<option value="${x}">`).join('');
+}
+
+function updateTipoUI(){
+  const tipo = document.getElementById('tipo').value;
+  const isTrail = (tipo==='Trail');
+  document.getElementById('trail-box').style.display = isTrail?'block':'none';
+  document.getElementById('sets-box').style.display  = isTrail?'none':'block';
+  document.getElementById('grp-ej').style.display    = isTrail?'none':'block';
+  refreshEjercicios();
+}
+
+function computeRitmo(){
+  const d = parseFloat(document.getElementById('dist_km').value);
+  const t = parseFloat(document.getElementById('tiempo_min').value);
+  if (isFinite(d) && d>0 && isFinite(t) && t>0){
+    document.getElementById('ritmo_min_km').value = (t/d).toFixed(2);
+  }
+}
+
+// ---- Envío a Google ----
+async function sendToGoogle(batch){
+  const payload={apiKey:GAS_API_KEY, op:'add', entries:batch};
+  try{
+    const res=await fetch(GAS_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),mode:'cors',cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return true;
+  }catch{
+    await fetch(GAS_ENDPOINT,{method:'POST',body:JSON.stringify(payload),mode:'no-cors'});
+    return true;
+  }
+}
+async function syncQueue(){
+  let queue=readLS(LS_QUEUE,[]);
+  if(!queue.length){ setStatus('Sincronizado','ok'); return; }
+  setStatus(\`Enviando \${queue.length}…\`,'warn');
+  const batch=queue.slice(0,20);
+  try{
+    const ok=await sendToGoogle(batch);
+    if(ok){
+      const sent = new Set(batch.map(x=>x.id));
+      queue = readLS(LS_QUEUE,[]).filter(x=>!sent.has(x.id));
+      writeLS(LS_QUEUE,queue);
+      setStatus(queue.length?\`Pendientes \${queue.length}\`:'Sincronizado', queue.length?'warn':'ok');
+      renderHistory(); if(queue.length) syncQueue();
+    }
+  }catch{ setStatus('Error de envío','err'); }
+}
+
+// ---- Lecturas (histórico y días) ----
+async function fetchJSON(body){
+  try{
+    const r=await fetch(GAS_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body, apiKey:GAS_API_KEY}),mode:'cors'});
+    return await r.json();
+  }catch{ return {ok:false}; }
+}
+
+async function renderHistory(){
+  const d = await fetchJSON({op:'days'});
+  const days = d.ok ? d.days||[] : [];
+  document.getElementById('s-dias').textContent = days.length||'–';
+  document.getElementById('s-lastday').textContent = days.length? days[days.length-1].fecha : '–';
+  document.getElementById('s-lastkind').textContent = days.length? (days[days.length-1].tipos||[]).join(', ') : '–';
+
+  const l = await fetchJSON({op:'list', limit:15});
+  const entries = l.ok ? (l.entries||[]) : [];
+  const tb = document.querySelector('#tabla tbody');
+  tb.innerHTML = entries.map(r=>\`<tr>
+    <td>\${r.fecha||''}</td>
+    <td>\${r.tipo||''}</td>
+    <td>\${r.ejercicio||''}</td>
+    <td>\${r.set||''}</td>
+    <td>\${r.reps||''}</td>
+    <td>\${r.peso_kg||''}</td>
+    <td>\${r.ritmo_min_km||''}</td>
+  </tr>\`).join('');
+}
+
+// ---- Form ----
+function toDateStr(d){ return new Date(d).toISOString().slice(0,10) }
+
+function collectGymEntries(base){
+  const rows = [...document.querySelectorAll('.set-row')];
+  const out=[];
+  rows.forEach((row,idx)=>{
+    const [setNum,reps,kg,rir,desc] = [...row.querySelectorAll('input')];
+    const repsN = parseInt(reps.value,10);
+    const kgN   = parseFloat(kg.value);
+    if (!isFinite(repsN) || !isFinite(kgN)) return;
+    out.push({...base,set: idx+1,reps: repsN,peso_kg: kgN,rir: parseFloat(rir.value)||'',descanso_s: parseInt(desc.value,10)||''});
+  });
+  return out;
+}
+
+async function addEntry(ev){
+  ev.preventDefault();
+  const fecha = document.getElementById('fecha').value;
+  const tipo  = document.getElementById('tipo').value;
+  const notas = document.getElementById('notas').value.trim();
+
+  if(!fecha){ alert('Pon una fecha'); return; }
+
+  let batch=[];
+  if (tipo==='Trail'){
+    const dist = parseFloat(document.getElementById('dist_km').value);
+    const tmin = parseFloat(document.getElementById('tiempo_min').value);
+    const ritmo= parseFloat(document.getElementById('ritmo_min_km').value) || (isFinite(dist)&&isFinite(tmin)&&dist>0?tmin/dist:'');
+    if(!isFinite(dist)||!isFinite(tmin)){ alert('Completa distancia y tiempo'); return; }
+    batch.push({ id:uuid(), fecha, tipo, ejercicio:'Trail', dist_km:dist, tiempo_min:tmin, ritmo_min_km:ritmo, notas });
+  }else{
+    const ejercicio = document.getElementById('ejercicio').value.trim();
+    if(!ejercicio){ alert('Ejercicio vacío'); return; }
+    const base = { id:uuid(), fecha, tipo, ejercicio, set:'', reps:'', peso_kg:'', rir:'', descanso_s:'', notas };
+    batch = collectGymEntries(base);
+    if(!batch.length){ alert('Añade al menos una serie con reps y kg'); return; }
+  }
+
+  const q = readLS(LS_QUEUE,[]);
+  batch.forEach(x=> q.push(x));
+  writeLS(LS_QUEUE,q);
+  setStatus('Pendiente de envío','warn');
+
+  document.getElementById('form').reset();
+  document.getElementById('fecha').value = toDateStr(new Date());
+  clearSets(); addSetRow(); addSetRow();
+  renderHistory(); syncQueue();
+}
+
+// ---- init ----
+(async function(){
+  if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js',{scope:'./'});}catch{} }
+  document.getElementById('fecha').value = toDateStr(new Date());
+  document.getElementById('tipo').addEventListener('change', updateTipoUI);
+  document.getElementById('dist_km').addEventListener('input', computeRitmo);
+  document.getElementById('tiempo_min').addEventListener('input', computeRitmo);
+
+  document.getElementById('btn-addset').addEventListener('click', ()=> addSetRow());
+  document.getElementById('btn-clearsets').addEventListener('click', clearSets);
+  document.getElementById('btn-clear').addEventListener('click', ()=> document.getElementById('form').reset());
+  document.getElementById('btn-sync').addEventListener('click', syncQueue);
+  document.getElementById('form').addEventListener('submit', addEntry);
+
+  clearSets(); addSetRow(); addSetRow();
+  updateTipoUI();
+  renderHistory();
+})();
+</script>
+</body>
+</html>
