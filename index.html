@@ -248,6 +248,15 @@ const LS_CFG    = 'gymCfg_v2';
 const LS_QUEUE  = 'gymQueue_v2';
 const LS_CUSTOM = 'gymCustom_v2';
 
+// Aquí ponemos la URL fija:
+function loadCfg(){
+  const def={
+    endpoint:'https://script.google.com/macros/s/AKfycbxZ1JnmcLjBpHoYB31hfDGqQEdUVPJg3RiQtF2mDEudlZ2OWJWv5sOga_I8XoyPGeax/exec', // <-- Pega tu URL /exec aquí
+    apiKey:'' // si has configurado API_KEY en tu GAS, ponla aquí
+  };
+  return {...def, ...readLS(LS_CFG,def)};
+}
+
 const CFG = loadCfg();
 
 const SUGGESTIONS = {
