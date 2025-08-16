@@ -180,6 +180,13 @@
                 <input id="ritmo_min_km" name="ritmo_min_km" type="number" step="0.01" inputmode="decimal" placeholder="auto">
               </div>
             </div>
+            <div class="row row-3">
+              <div>
+                <label for="desnivel">Desnivel (+m)</label>
+                <input id="desnivel" name="desnivel" type="number" step="1" inputmode="numeric" placeholder="opcional">
+              </div>
+              <div></div><div></div>
+            </div>
           </div>
 
           <div class="row">
@@ -209,7 +216,7 @@
         </div>
         <h3 style="margin:.6rem 0;color:#cfe4ff;font-size:1rem">Últimos registros</h3>
         <table id="tabla">
-          <thead><tr><th>Fecha</th><th>Tipo</th><th>Ejercicio</th><th>Set</th><th>Reps</th><th>Kg</th><th>Ritmo</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Día</th><th>Tipo</th><th>Ejercicio</th><th>Set</th><th>Reps</th><th>Kg</th><th>Desnivel</th><th>Ritmo</th></tr></thead>
         <tbody></tbody></table>
       </div>
     </section>
@@ -248,15 +255,18 @@ const LS_CFG    = 'gymCfg_v2';
 const LS_QUEUE  = 'gymQueue_v2';
 const LS_CUSTOM = 'gymCustom_v2';
 
-// Aquí ponemos la URL fija:
+function readLS(k,f){ try{ return JSON.parse(localStorage.getItem(k)||JSON.stringify(f)) }catch{ return f } }
+function writeLS(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+// Config por defecto (puedes dejar endpoint vacío si prefieres)
 function loadCfg(){
   const def={
-    endpoint:'https://script.google.com/macros/s/AKfycbxZ1JnmcLjBpHoYB31hfDGqQEdUVPJg3RiQtF2mDEudlZ2OWJWv5sOga_I8XoyPGeax/exec', // <-- Pega tu URL /exec aquí
-    apiKey:'' // si has configurado API_KEY en tu GAS, ponla aquí
+    endpoint:'',
+    apiKey:''
   };
   return {...def, ...readLS(LS_CFG,def)};
 }
-
+function saveCfg(obj){ const next={...CFG,...obj}; writeLS(LS_CFG,next); Object.assign(CFG,next); }
 const CFG = loadCfg();
 
 const SUGGESTIONS = {
@@ -267,14 +277,17 @@ const SUGGESTIONS = {
 };
 
 /* ---------------- Utils ---------------- */
-function readLS(k,f){ try{ return JSON.parse(localStorage.getItem(k)||JSON.stringify(f)) }catch{ return f } }
-function writeLS(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 function uuid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36) }
 function toDateStr(d){ return new Date(d).toISOString().slice(0,10) }
 function setStatus(t,k){ const el=document.getElementById('status-pill'); el.textContent=t; el.className='pill '+(k||''); }
-function loadCfg(){ const def={endpoint:'',apiKey:''}; return {...def, ...readLS(LS_CFG,def)} }
-function saveCfg(obj){ const next={...CFG,...obj}; writeLS(LS_CFG,next); Object.assign(CFG,next); }
 function esc(s){ return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+
+// Nombre del día en español (lunes..domingo)
+function weekdayEs(dateISO){
+  const d=new Date(dateISO+'T00:00:00');
+  const map=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  return map[d.getDay()];
+}
 
 /* ----- Series UI ----- */
 function renumberSets(){
@@ -321,28 +334,17 @@ function updateClock(){ const s=tStartedAt?secSince(tStartedAt):0; document.getE
 function tStart(){ if(tStartedAt) return; tStartedAt=Date.now(); updateClock(); tTicker=setInterval(updateClock, 250); }
 function tStop(){ if(!tStartedAt) return; clearInterval(tTicker); tTicker=null; updateClock(); tStartedAt=null; }
 function tReset(){ tStop(); document.getElementById('t-display').textContent='00:00'; }
-// Lee MM:SS del display y lo convierte a segundos
-function displaySec(){
-  const t=(document.getElementById('t-display').textContent||'00:00').trim();
-  const [m,s]=t.split(':').map(x=>parseInt(x,10)||0);
-  return m*60 + s;
-}
+function displaySec(){ const t=(document.getElementById('t-display').textContent||'00:00').trim(); const [m,s]=t.split(':').map(x=>parseInt(x,10)||0); return m*60 + s; }
 function tApplyToLastSet(){
   const rows=document.querySelectorAll('.set-row');
   if(!rows.length) return;
-  // usa el tiempo real si el reloj está corriendo; si no, lee el display MM:SS
   const secs = tStartedAt ? secSince(tStartedAt) : displaySec();
   rows[rows.length-1].querySelectorAll('input')[3].value = secs;
-  summarizeSets();
-  tReset();
+  summarizeSets(); tReset();
 }
-function tNextSet(){
-  tApplyToLastSet(); addSetRow(); // crea set nuevo y deja reloj reseteado
-}
+function tNextSet(){ tApplyToLastSet(); addSetRow(); }
 
-/* ----- Ejercicios datalist + últimos pesos ----- */
-function customList(tipo){ const bag=readLS(LS_CUSTOM,{}); return Array.isArray(bag[tipo])?bag[tipo]:[] }
-function saveCustom(tipo,ej){ if(!ej) return; const bag=readLS(LS_CUSTOM,{}); bag[tipo]=Array.from(new Set([...(bag[tipo]||[]), ej])).slice(0,80); writeLS(LS_CUSTOM,bag); }
+/* ----- Fetch helpers ----- */
 async function fetchJSON(body){
   if(!CFG.endpoint) return {ok:false};
   try{
@@ -350,13 +352,14 @@ async function fetchJSON(body){
     return await r.json();
   }catch{ return {ok:false}; }
 }
+
+/* ----- Ejercicios datalist + últimos pesos ----- */
+function customList(tipo){ const bag=readLS(LS_CUSTOM,{}); return Array.isArray(bag[tipo])?bag[tipo]:[] }
+function saveCustom(tipo,ej){ if(!ej) return; const bag=readLS(LS_CUSTOM,{}); bag[tipo]=Array.from(new Set([...(bag[tipo]||[]), ej])).slice(0,80); writeLS(LS_CUSTOM,bag); }
 async function refreshEjercicios(){
   const tipo=document.getElementById('tipo').value;
   const dl=document.getElementById('dl-ej');
-  // Trae catálogo remoto (si existe)
-  let remote=[]; try{
-    const j=await fetchJSON({op:'catalog', tipo}); if(j.ok && Array.isArray(j.data)) remote=j.data.map(x=>x.ejercicio);
-  }catch{}
+  let remote=[]; try{ const j=await fetchJSON({op:'catalog', tipo}); if(j.ok && Array.isArray(j.data)) remote=j.data.map(x=>x.ejercicio); }catch{}
   const local=customList(tipo), base=SUGGESTIONS[tipo]||[];
   const all=Array.from(new Set([...base, ...remote, ...local]));
   dl.innerHTML = all.map(x=>`<option value="${esc(x)}">`).join('');
@@ -367,18 +370,16 @@ async function showLastWeights(){
   const ej=(document.getElementById('ejercicio').value||'').trim();
   const box=document.getElementById('last-weights'), nameEl=document.getElementById('lw-name'), tags=document.getElementById('lw-tags');
   if(!CFG.endpoint||!ej||tipo==='Trail'){ box.hidden=true; return; }
-
   const l=await fetchJSON({op:'list', limit:200});
   if(!l.ok){ box.hidden=true; return; }
   const filtered=(l.entries||[]).filter(r=> (r.tipo||'')===tipo && (r.ejercicio||'').toLowerCase()===ej.toLowerCase());
-  // Agrupa por fecha -> set reps×kg
   const byDate=new Map();
   for(const r of filtered){
     const key=r.fecha||'';
     if(!byDate.has(key)) byDate.set(key, []);
     if(r.reps && r.peso_kg) byDate.get(key).push(`${r.reps}×${r.peso_kg}`);
   }
-  const last=Array.from(byDate.entries()).slice(-5); // últimas 5 fechas
+  const last=Array.from(byDate.entries()).slice(-5);
   if(!last.length){ box.hidden=true; return; }
   nameEl.textContent = ej;
   tags.innerHTML = last.map(([fecha, arr])=>`<span class="tag">${esc(fecha)} · ${esc(arr.join(', '))}</span>`).join('');
@@ -396,11 +397,13 @@ async function renderHistory(){
   const tb=document.querySelector('#tabla tbody');
   tb.innerHTML = entries.map(r=>`<tr>
     <td>${esc(r.fecha||'')}</td>
+    <td>${esc(r.dia_semana||'')}</td>
     <td>${esc(r.tipo||'')}</td>
     <td>${esc(r.ejercicio||'')}</td>
     <td>${esc(r.set||'')}</td>
     <td>${esc(r.reps||'')}</td>
     <td>${esc(r.peso_kg||'')}</td>
+    <td>${esc(r.desnivel||'')}</td>
     <td>${esc(r.ritmo_min_km||'')}</td>
   </tr>`).join('');
 }
@@ -454,19 +457,23 @@ async function addEntry(ev){
   const notas=document.getElementById('notas').value.trim();
   if(!fecha){ alert('Pon una fecha'); return; }
 
+  // Calcular dia_semana siempre en cliente
+  let dia_semana = weekdayEs(fecha);
+
   let batch=[];
   if(tipo==='Trail'){
     const dist=parseFloat(document.getElementById('dist_km').value);
     const tmin=parseFloat(document.getElementById('tiempo_min').value);
     let ritmo=parseFloat(document.getElementById('ritmo_min_km').value);
+    const desn=parseFloat(document.getElementById('desnivel').value);
     if(!isFinite(ritmo)) ritmo=calcRitmo(dist,tmin);
     if(!isFinite(dist)||!isFinite(tmin)){ alert('Completa distancia y tiempo'); return; }
-    batch.push({id:uuid(), fecha, tipo, ejercicio:'Trail', dist_km:dist, tiempo_min:tmin, ritmo_min_km:isFinite(ritmo)?ritmo:'', notas});
+    batch.push({id:uuid(), fecha, dia_semana, tipo, ejercicio:'Trail', dist_km:dist, tiempo_min:tmin, ritmo_min_km:isFinite(ritmo)?ritmo:'', desnivel:isFinite(desn)?desn:'', notas});
   }else{
     const ejercicio=(document.getElementById('ejercicio').value||'').trim();
     if(!ejercicio){ alert('Ejercicio vacío'); return; }
     saveCustom(tipo, ejercicio);
-    const base={id:uuid(), fecha, tipo, ejercicio, notas};
+    const base={id:uuid(), fecha, dia_semana, tipo, ejercicio, notas};
     batch=collectGymEntries(base);
     if(!batch.length){ alert('Añade al menos una serie con reps y kg'); return; }
   }
@@ -502,7 +509,6 @@ function dbgQueue(){ const q=readLS(LS_QUEUE,[]); logDbg('Cola ('+q.length+'): '
 
 /* ----- init ----- */
 (function(){
-  // Fecha y sets por defecto
   document.getElementById('fecha').value = toDateStr(new Date());
   clearSets(); addSetRow(); addSetRow(); addSetRow();
 
